@@ -1,0 +1,6 @@
+@RotiseriaAPI_HostAddress = http://localhost:5285
+
+GET {{RotiseriaAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
