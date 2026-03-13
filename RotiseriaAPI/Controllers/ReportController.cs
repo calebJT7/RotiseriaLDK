@@ -11,7 +11,7 @@ public class ReportsController : ControllerBase
 {
     private readonly AppDbContext _context;
     public ReportsController(AppDbContext context) => _context = context;
-
+    [Authorize(Roles = "Admin")] // ¡SOLO EL ADMIN PUEDE ENTRAR!
     [HttpGet("daily")]
     public async Task<ActionResult<DailyReport>> GetDailyReport()
     {
