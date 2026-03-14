@@ -1,0 +1,44 @@
+﻿@page "/"
+@using RotiseriaWeb.Models
+@inject HttpClient Http
+
+<MudText Typo="Typo.h3" Align="Align.Center" GutterBottom="true">Panel de Ventas</MudText>
+
+@if (products == null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudGrid>
+        @foreach (var prod in products)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudCard Elevation="3">
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6">@prod.Name</MudText>
+                        <MudText Typo="Typo.body1">Precio: $@prod.Price</MudText>
+                        <MudText Typo="Typo.body2" Color="@(prod.Stock < 5 ? Color.Error : Color.Default)">
+                            Stock: @prod.Stock
+                        </MudText>
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true">
+                            AGREGAR AL PEDIDO
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@code {
+    private List<Product>? products;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Llamamos a tu API. Asegurate que la API esté corriendo.
+        products = await Http.GetFromJsonAsync<List<Product>>("api/Producto");
+    }
+}

@@ -38,5 +38,18 @@ namespace RotiseriaAPI.Controllers
                 .Take(10) // Solo los primeros 10 para que sea instantáneo
                 .ToListAsync();
         }
+        // PATCH: api/Producto/toggle/5
+        [HttpPatch("toggle/{id}")]
+        public async Task<IActionResult> ToggleProductStatus(int id)
+        {
+            var product = await _context.Products.FindAsync(id);
+            if (product == null) return NotFound();
+
+            // Invertimos el estado: si estaba true pasa a false, y viceversa
+            product.IsActive = !product.IsActive;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { name = product.Name, isActive = product.IsActive });
+        }
     }
 }

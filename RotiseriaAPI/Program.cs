@@ -11,8 +11,20 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-var app = builder.Build();
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
 
+// Y después de builder.Build():
+
+var app = builder.Build();
+app.UseCors();
 // 2. Configuración del pipeline (Swagger y Rutas)
 if (app.Environment.IsDevelopment())
 {
