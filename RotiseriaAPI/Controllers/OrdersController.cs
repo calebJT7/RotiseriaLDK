@@ -28,18 +28,27 @@ public class OrdersController : ControllerBase
 
         decimal totalProductos = 0;
 
-        // 2. Procesamos cada ítem para buscar el precio real
+        // 2. Procesamos cada ítem para buscar el precio real y RESTAR STOCK
         foreach (var item in order.Items)
         {
             var product = await _context.Products.FindAsync(item.ProductId);
             if (product != null)
             {
-                item.ProductName = product.Name; // Guardamos el nombre actual
-                item.UnitPrice = product.Price;  // Usamos el precio de la base de datos
+                // --- NUEVO: Validación de Stock ---
+                if (product.Stock < item.Quantity)
+                {
+                    // Si no alcanza, frenamos todo y avisamos qué falta
+                    return BadRequest($"No hay stock suficiente de {product.Name}. Disponible: {product.Stock}");
+                }
+
+                // --- NUEVO: Restamos la cantidad del stock del producto ---
+                product.Stock -= item.Quantity;
+
+                item.ProductName = product.Name;
+                item.UnitPrice = product.Price;
                 totalProductos += (item.UnitPrice * item.Quantity);
             }
         }
-
         // 3. Calculamos el Total Final
         order.Total = totalProductos + order.DeliveryCost;
 
