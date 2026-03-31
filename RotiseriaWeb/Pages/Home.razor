@@ -1,44 +1,217 @@
 ﻿@page "/"
 @using RotiseriaWeb.Models
+@using MudBlazor
 @inject HttpClient Http
+@inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h3" Align="Align.Center" GutterBottom="true">Panel de Ventas</MudText>
-
-@if (products == null)
-{
-    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-}
-else
-{
+<MudContainer MaxWidth="MaxWidth.False" Class="mt-4">
     <MudGrid>
-        @foreach (var prod in products)
-        {
-            <MudItem xs="12" sm="6" md="4">
-                <MudCard Elevation="3">
-                    <MudCardContent>
-                        <MudText Typo="Typo.h6">@prod.Name</MudText>
-                        <MudText Typo="Typo.body1">Precio: $@prod.Price</MudText>
-                        <MudText Typo="Typo.body2" Color="@(prod.Stock < 5 ? Color.Error : Color.Default)">
-                            Stock: @prod.Stock
-                        </MudText>
-                    </MudCardContent>
-                    <MudCardActions>
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true">
-                            AGREGAR AL PEDIDO
-                        </MudButton>
-                    </MudCardActions>
-                </MudCard>
-            </MudItem>
-        }
+        @* COLUMNA IZQUIERDA: PRODUCTOS *@
+        <MudItem xs="12" md="8">
+            <MudText Typo="Typo.h4" Class="mb-4" Color="Color.Primary">Menú</MudText>
+            <MudGrid>
+                @if (products == null)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                }
+                else
+                {
+                    @foreach (RotiseriaWeb.Models.Product prod in products)
+                    {
+                        <MudItem xs="12" sm="6">
+                            <MudCard Elevation="4" Style="background-color: #2a2a2a; color: white;">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6">@prod.Name</MudText>
+                                    <MudText Typo="Typo.h5" Color="Color.Primary">$@prod.Price</MudText>
+                                </MudCardContent>
+                                <MudCardActions>
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                                               OnClick="@(() => AddToCart(prod))">
+                                        AGREGAR
+                                    </MudButton>
+                                </MudCardActions>
+                            </MudCard>
+                        </MudItem>
+                    }
+                }
+            </MudGrid>
+        </MudItem>
+
+        @* COLUMNA DERECHA: CARRITO *@
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="4" Class="pa-4 rounded-lg sticky-top">
+                <MudText Typo="Typo.h5" Class="mb-4">Finalizar Pedido</MudText>
+
+                @* NUEVO: Lista de productos agregados *@
+                @if (cart.Any())
+                {
+                    <MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-2">Productos en el carrito:</MudText>
+                    <MudList T="string" Dense="true" Class="mb-4 rounded-lg" Style="background-color: #f5f5f5;">
+                        @foreach (var item in cart)
+                        {
+                            <MudListItem>
+                                <div class="d-flex align-center justify-space-between">
+                                    <div style="flex-grow: 1;">
+                                        <MudText Typo="Typo.body2"><b>@item.ProductName</b></MudText>
+                                        <MudText Typo="Typo.caption">$@item.UnitPrice c/u</MudText>
+                                    </div>
+                                    <div class="d-flex align-center">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Remove" Size="Size.Small"
+                                                       OnClick="@(() => RestarCantidad(item))" />
+                                        <MudText Typo="Typo.body2" Class="mx-2">@item.Quantity</MudText>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" Color="Color.Primary"
+                                                       OnClick="@(() => AddToCartFromList(item))" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                       Color="Color.Error" OnClick="@(() => RemoveFromCart(item))" Class="ml-1" />
+                                    </div>
+                                </div>
+                            </MudListItem>
+                            <MudDivider />
+                        }
+                    </MudList>
+                    
+                    <div class="d-flex justify-space-between mb-4">
+                        <MudText Typo="Typo.h6">Total:</MudText>
+                        <MudText Typo="Typo.h6" Color="Color.Primary"><b>$ @TotalCart</b></MudText>
+                    </div>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info" Class="mb-4">El carrito está vacío</MudAlert>
+                }
+
+                @* Datos del Cliente *@
+                <MudTextField @bind-Value="customerName" Label="Nombre del Cliente" Variant="Variant.Outlined"
+                              Margin="Margin.Dense" Class="mb-2" />
+
+                @* Selectores de Tipo y Pago *@
+                <MudSelect @bind-Value="orderType" Label="Tipo de Entrega" Variant="Variant.Outlined"
+                           Margin="Margin.Dense" Class="mb-2">
+                    <MudSelectItem Value="@("Local")">Mostrador</MudSelectItem>
+                    <MudSelectItem Value="@("Delivery")">Envío a Domicilio</MudSelectItem>
+                </MudSelect>
+
+                @if (orderType == "Delivery")
+                {
+                    <MudTextField @bind-Value="deliveryAddress" Label="Dirección" Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" Class="mb-2" />
+                }
+
+                <MudSelect @bind-Value="selectedPayment" Label="Medio de Pago" Variant="Variant.Outlined"
+                           Margin="Margin.Dense" Class="mb-4">
+                    <MudSelectItem Value="@("Efectivo")">Efectivo</MudSelectItem>
+                    <MudSelectItem Value="@("Transferencia")">Transferencia</MudSelectItem>
+                    <MudSelectItem Value="@("Fiado")">Fiado (Deuda)</MudSelectItem>
+                    <MudSelectItem Value="@("Cuenta Corriente")">Cuenta Corriente</MudSelectItem>
+                </MudSelect>
+
+                @* Botón Final *@
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large"
+                           Disabled="@(isProcessing || !cart.Any() || string.IsNullOrEmpty(customerName))"
+                           OnClick="ConfirmarPedido">
+                    @(isProcessing ? "PROCESANDO..." : "CONFIRMAR E IMPRIMIR")
+                </MudButton>
+            </MudPaper>
+        </MudItem>
     </MudGrid>
-}
+</MudContainer>
 
 @code {
     private List<Product>? products;
+    private List<CartItem> cart = new();
+
+    private decimal TotalCart => cart.Sum(x => x.Quantity * x.UnitPrice);
+
+    private bool isProcessing = false;
+    private string selectedPayment = "Efectivo";
+    private string orderType = "Local";
+    private string deliveryAddress = "";
+    private string customerName = "";
 
     protected override async Task OnInitializedAsync()
     {
-        // Llamamos a tu API. Asegurate que la API esté corriendo.
-        products = await Http.GetFromJsonAsync<List<Product>>("api/Producto");
+        try
+        {
+            products = await Http.GetFromJsonAsync<List<Product>>("api/Producto");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error conectando a la API: {ex.Message}");
+            Snackbar.Add("No se pudo conectar con el servidor", Severity.Error);
+        }
+    }
+
+    private void AddToCart(Product prod)
+    {
+        var item = cart.FirstOrDefault(x => x.ProductId == prod.Id);
+        if (item == null)
+        {
+            cart.Add(new CartItem { ProductId = prod.Id, ProductName = prod.Name, UnitPrice = prod.Price, Quantity = 1 });
+        }
+        else
+        {
+            item.Quantity++;
+        }
+        Snackbar.Add($"{prod.Name} agregado", Severity.Success);
+    }
+
+    // Nueva función para sumar desde la lista del carrito sin mandar Snackbar molesto
+    private void AddToCartFromList(CartItem item)
+    {
+        item.Quantity++;
+    }
+
+    private void RestarCantidad(CartItem item)
+    {
+        if (item.Quantity > 1)
+        {
+            item.Quantity--;
+        }
+        else
+        {
+            cart.Remove(item);
+        }
+    }
+
+    private void RemoveFromCart(CartItem item)
+    {
+        cart.Remove(item);
+        Snackbar.Add("Producto quitado", Severity.Info);
+    }
+
+    private async Task ConfirmarPedido()
+    {
+        isProcessing = true;
+
+        var nuevoPedido = new Order
+        {
+            ClientName = customerName,
+            Items = cart.Select(x => new OrderItem
+            {
+                ProductId = x.ProductId,
+                Quantity = x.Quantity
+            }).ToList(),
+            DeliveryCost = 0,
+            PaymentMethod = selectedPayment,
+            DeliveryAddress = deliveryAddress,
+            OrderType = orderType
+        };
+
+        var response = await Http.PostAsJsonAsync("api/Orders", nuevoPedido);
+
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("¡Pedido enviado y stock actualizado!", Severity.Success);
+            cart.Clear();
+            customerName = "";
+            deliveryAddress = "";
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            Snackbar.Add($"Error: {error}", Severity.Error);
+        }
+
+        isProcessing = false;
     }
 }

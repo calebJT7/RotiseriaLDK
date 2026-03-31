@@ -1,0 +1,41 @@
+@page "/orders-history"
+@using RotiseriaWeb.Models
+@inject HttpClient Http
+
+<MudText Typo="Typo.h4" Class="mb-4" Color="Color.Primary">Historial de Ventas</MudText>
+
+<MudTable Items="@orders" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@loading">
+    <HeaderContent>
+        <MudTh>Fecha</MudTh>
+        <MudTh>Cliente</MudTh>
+        <MudTh>Total</MudTh>
+        <MudTh>Pago</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Fecha">@context.Date.ToString("dd/MM HH:mm")</MudTd>
+        <MudTd DataLabel="Cliente">ID: @context.CustomerId</MudTd>
+        <MudTd DataLabel="Total">$ @context.Total</MudTd>
+        <MudTd DataLabel="Pago">
+            <MudChip T="string" Color="@(context.PaymentMethod == "Cuenta Corriente" ? Color.Warning : Color.Success)">
+                @context.PaymentMethod
+            </MudChip>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private List<Order> orders = new();
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            orders = await Http.GetFromJsonAsync<List<Order>>("api/Order") ?? new();
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

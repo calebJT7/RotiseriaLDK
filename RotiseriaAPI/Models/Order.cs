@@ -4,6 +4,7 @@ public class Order
 {
     public int Id { get; set; }
     public DateTime Date { get; set; } = DateTime.Now;
+    public int? CustomerId { get; set; } // Nullable for orders without customer
     public string ClientName { get; set; } = string.Empty;
     public string? Phone { get; set; }
     public string DeliveryAddress { get; set; } = string.Empty; // Se guarda siempre

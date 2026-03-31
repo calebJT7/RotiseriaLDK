@@ -1,16 +1,42 @@
-﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+﻿@using MudBlazor
+@inherits LayoutComponentBase
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+<MudThemeProvider Theme="_currentTheme" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
 
-        <article class="content px-4">
+<MudLayout>
+    <MudAppBar Color="Color.Primary" Elevation="1">
+        @* Botón para abrir/cerrar el menú *@
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                       OnClick="@((e) => DrawerToggle())" />
+        <MudText Typo="Typo.h5" Class="ml-3">ROTISERIA LDK</MudText>
+    </MudAppBar>
+
+    @* El Cajón Lateral que contiene tus botones *@
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="2" ClipMode="DrawerClipMode.Always">
+        <NavMenu /> @* Aquí es donde se "dibuja" el contenido de NavMenu.razor *@
+    </MudDrawer>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.False" Class="my-4">
             @Body
-        </article>
-    </main>
-</div>
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    bool _drawerOpen = true; // Empieza abierto por defecto
+    void DrawerToggle() => _drawerOpen = !_drawerOpen;
+
+    private MudTheme _currentTheme = new MudTheme()
+    {
+        PaletteLight = new PaletteLight()
+        {
+            Primary = "#FF6D00",
+            Secondary = "#FFD600",
+            AppbarBackground = "#FF6D00",
+        }
+    };
+}

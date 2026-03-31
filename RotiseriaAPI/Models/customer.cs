@@ -7,4 +7,5 @@ public class Customer
     public string? Phone { get; set; } // Opcional
     public string? Address { get; set; } // Opcional (para el delivery)
     public string? Notes { get; set; } // Ejemplo: "Tocar timbre fuerte"
+    public decimal Balance { get; set; }
 }

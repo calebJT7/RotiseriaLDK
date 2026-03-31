@@ -10,4 +10,5 @@ public class DailyReport
     public decimal TotalExpenses { get; set; }
     public decimal NetBalance => TotalSales - TotalExpenses; // Lo que realmente queda
     public int OrdersCount { get; set; }
+
 }
