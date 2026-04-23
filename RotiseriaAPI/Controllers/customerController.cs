@@ -44,7 +44,7 @@ public class CustomerController : ControllerBase
         var customer = await _context.Customers.FindAsync(id);
         if (customer == null) return NotFound();
 
-        // Sumamos el monto al saldo (que es negativo)
+        // Suma el monto al saldo (que es negativo)
         customer.Balance += amount;
 
         _context.Entry(customer).State = EntityState.Modified;

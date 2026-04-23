@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using System.Text; // Para CodePagesEncodingProvider
+//using System.Text; // Para CodePagesEncodingProvider
 using Microsoft.EntityFrameworkCore;
 using RotiseriaAPI.Data; // Asegurate de que este sea el namespace donde está tu AppDbContext
 
@@ -32,7 +32,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// JWT (Día 12): Configuración de los tokens de seguridad
+// JWT: Configuración de los tokens de seguridad
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "EstaEsUnaClaveSecretaDeRespaldoMuyLarga12345!"; // Usa la de appsettings.json o esta de respaldo
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

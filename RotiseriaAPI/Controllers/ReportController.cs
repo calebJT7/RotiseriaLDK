@@ -25,12 +25,12 @@ public class ReportsController : ControllerBase
             .Where(o => o.Date >= today && o.PaymentMethod != "Cuenta Corriente")
             .SumAsync(o => o.Total);
 
-        // NUEVO: Total de recaudación por Delivery (la suma de todos los "Costo de Envío")
+        //  Total de recaudación por Delivery (la suma de todos los "Costo de Envío")
         var deliveryRevenue = await _context.Orders
             .Where(o => o.Date >= today && o.OrderType == "Delivery")
             .SumAsync(o => o.DeliveryCost);
 
-        // NUEVO: Cantidad de viajes (cuántos pedidos fueron Delivery)
+        // Cantidad de viajes (cuántos pedidos fueron Delivery)
         var deliveryTrips = await _context.Orders
             .CountAsync(o => o.Date >= today && o.OrderType == "Delivery");
 

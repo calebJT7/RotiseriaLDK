@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens; // <-- Esta te falta
-using System.IdentityModel.Tokens.Jwt; // <-- Esta te falta
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text; // <-- Esta para Encoding
+using System.Text;
 using RotiseriaAPI.Models;
 
 namespace RotiseriaAPI.Controllers;
@@ -17,7 +17,7 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public IActionResult Login([FromBody] User login)
     {
-        // 1. Simulación de validación (Después lo haremos contra la DB)
+        // 1. Simulación de validación
         if (login.Username == "admin" && login.PasswordHash == "1234")
         {
             var token = GenerateToken("admin", "Admin");

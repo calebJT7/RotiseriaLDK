@@ -7,7 +7,7 @@ public class PrintService
 {
     public void PrintOrder(Order order)
     {
-        // Acordate de verificar si el nombre en Windows es "POS-80"
+        //  verificar si el nombre en Windows es "POS-80"
         Printer printer = new Printer("POS-80");
 
         // --- ENCABEZADO ---

@@ -8,7 +8,7 @@ namespace RotiseriaAPI.Data
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
         public DbSet<Product> Products { get; set; }
-        // Agregá estas dos líneas debajo de la de Products:
+
         public DbSet<Expense> Expenses { get; set; }
         public DbSet<EmployeeConsumption> EmployeeConsumptions { get; set; }
         public DbSet<Debt> Debts { get; set; }

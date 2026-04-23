@@ -27,13 +27,13 @@ public class OrdersController : ControllerBase
         order.Status = "Recibido";
         decimal totalProductos = 0;
 
-        // 2. Procesamos ítems: Validamos Stock y calculamos Precios
+        // 2. Procesar ítems: Validamos Stock y calculamos Precios
         foreach (var item in order.Items)
         {
             var product = await _context.Products.FindAsync(item.ProductId);
             if (product != null)
             {
-                // Validación de Stock (Crítico para bebidas)
+                // Validación de Stock ( para bebidas)
                 if (product.Stock < item.Quantity)
                 {
                     return BadRequest($"No hay stock suficiente de {product.Name}. Disponible: {product.Stock}");
@@ -63,7 +63,7 @@ public class OrdersController : ControllerBase
             }
         }
 
-        // 5. Guardamos en Base de Datos
+        // 5. Guardar en Base de Datos
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
@@ -80,7 +80,7 @@ public class OrdersController : ControllerBase
         return Ok(order);
     }
 
-    // GET: api/Orders (Historial completo para el Día 23)
+    // GET: api/Orders 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Order>>> GetOrders()
     {
@@ -90,7 +90,7 @@ public class OrdersController : ControllerBase
             .ToListAsync();
     }
 
-    // GET: api/Orders/today (Para ver solo lo de hoy)
+    // GET: api/Orders/today 
     [HttpGet("today")]
     public async Task<ActionResult<IEnumerable<Order>>> GetTodayOrders()
     {
