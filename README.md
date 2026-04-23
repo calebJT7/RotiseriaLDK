@@ -5,7 +5,6 @@
 ![SQLite](https://img.shields.io/badge/SQLite-Database-003B57?style=flat&logo=sqlite)
 ![Status](https://img.shields.io/badge/Status-Completed-success?style=flat)
 
-# LDK Rotiseria - POS & Business Management System
 
 A comprehensive Point of Sale (POS) and business management system developed for a real-world gastronomic enterprise. Designed with a local network (LAN) architecture to operate with zero cloud infrastructure costs (On-Premise), allowing multiple devices (smartphones, tablets) to connect to a central PC acting as a local server.
 
