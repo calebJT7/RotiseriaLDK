@@ -20,28 +20,35 @@ public class ReportsController : ControllerBase
     {
         var today = DateTime.Today;
 
-        // Ventas netas (comida + bebida)
-        var salesToday = await _context.Orders
-            .Where(o => o.Date >= today && o.PaymentMethod != "Cuenta Corriente")
-            .SumAsync(o => o.Total);
+        // Traemos todos los pedidos de hoy de una sola vez y súper rápido con AsNoTracking
+        var ordersToday = await _context.Orders
+            .AsNoTracking()
+            .Where(o => o.Date >= today)
+            .ToListAsync();
 
-        //  Total de recaudación por Delivery (la suma de todos los "Costo de Envío")
-        var deliveryRevenue = await _context.Orders
-            .Where(o => o.Date >= today && o.OrderType == "Delivery")
-            .SumAsync(o => o.DeliveryCost);
+        // Ventas netas (Comida + Bebida + Envío, excluyendo fiados)
+        // Ventas netas: Sumamos los Totales pero restándole el costo del envío a cada uno 
+        // y excluyendo las cuentas corrientes (fiados)
+        var salesToday = ordersToday
+            .Where(o => o.PaymentMethod != "Cuenta Corriente")
+            .Sum(o => o.Total - o.DeliveryCost); // ¡ACÁ RESTAMOS EL ENVÍO!
 
-        // Cantidad de viajes (cuántos pedidos fueron Delivery)
-        var deliveryTrips = await _context.Orders
-            .CountAsync(o => o.Date >= today && o.OrderType == "Delivery");
+        // Recaudación exclusiva de los cadetes
+        var deliveryRevenue = ordersToday
+            .Where(o => o.OrderType == "Delivery")
+            .Sum(o => o.DeliveryCost);
+
+        // Cantidad de viajes
+        var deliveryTrips = ordersToday
+            .Count(o => o.OrderType == "Delivery");
 
         var totalDebt = await _context.Customers
+            .AsNoTracking()
             .Where(c => c.Balance < 0)
             .SumAsync(c => c.Balance);
 
-        var ordersCount = await _context.Orders
-            .CountAsync(o => o.Date >= today);
-
         var lowStockBebidas = await _context.Products
+            .AsNoTracking()
             .Where(p => p.Category == "Bebida" && p.Stock < 5)
             .Select(p => new { p.Name, p.Stock })
             .ToListAsync();
@@ -49,23 +56,24 @@ public class ReportsController : ControllerBase
         return Ok(new
         {
             SalesToday = salesToday,
-            DeliveryRevenue = deliveryRevenue, // Plata de los envíos
-            DeliveryTrips = deliveryTrips,     // Cantidad de viajes
+            DeliveryRevenue = deliveryRevenue,
+            DeliveryTrips = deliveryTrips,
             TotalDebt = Math.Abs(totalDebt),
-            OrdersCount = ordersCount,
+            OrdersCount = ordersToday.Count,
             LowStock = lowStockBebidas
         });
     }
+
     [HttpGet("monthly-history")]
     public async Task<ActionResult> GetMonthlyHistory()
     {
-        // Agrupamos los pedidos por Año y Mes
         var history = await _context.Orders
-            .Where(o => o.Date >= DateTime.Now.AddYears(-1)) // Solo el último año
+            .AsNoTracking()
+            .Where(o => o.Date >= DateTime.Now.AddYears(-1))
             .GroupBy(o => new { o.Date.Year, o.Date.Month })
             .Select(g => new
             {
-                Label = $"{g.Key.Month}/{g.Key.Year}", // Ejemplo: "3/2026"
+                Label = $"{g.Key.Month}/{g.Key.Year}",
                 Total = g.Sum(o => o.Total),
                 OrderCount = g.Count()
             })

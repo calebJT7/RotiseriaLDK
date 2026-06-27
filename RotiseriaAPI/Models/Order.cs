@@ -3,19 +3,23 @@ namespace RotiseriaAPI.Models;
 public class Order
 {
     public int Id { get; set; }
-    public DateTime Date { get; set; } = DateTime.Now;
-    public int? CustomerId { get; set; } // Nullable for orders without customer
+    public DateTime Date { get; set; } = DateTime.Now; // Usamos esta como única fecha de ingreso
+    public int? CustomerId { get; set; }
     public string ClientName { get; set; } = string.Empty;
     public string? Phone { get; set; }
-    public string DeliveryAddress { get; set; } = string.Empty; // Se guarda siempre
-    public string OrderType { get; set; } = "Delivery"; // Delivery o Retira
-    public string PaymentMethod { get; set; } = "Efectivo"; // Efectivo, Transferencia, Tarjeta
-    public string Status { get; set; } = "Recibido"; // Recibido, Cocina, Listo, Entregado
-    public string? Comments { get; set; } // "Sin cebolla", "Tocar timbre", etc.
+    public string DeliveryAddress { get; set; } = string.Empty;
+    public string OrderType { get; set; } = "Delivery";
+    public string PaymentMethod { get; set; } = "Efectivo";
+    public string? Comments { get; set; }
     public decimal DeliveryCost { get; set; }
     public decimal Total { get; set; }
     public bool IsPaid { get; set; } = false;
 
     // Relación con los items del pedido
     public List<OrderItem> Items { get; set; } = new();
+
+    // --- Propiedades de Cocina y Logística (Solo una vez) ---
+    public string Status { get; set; } = "Pendiente";
+    public DateTime? DispatchedAt { get; set; }
+    public bool Alert30Dismissed { get; set; } = false;
 }

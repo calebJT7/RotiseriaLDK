@@ -24,7 +24,7 @@ public class OrdersController : ControllerBase
     {
         // 1. Configuración inicial
         order.Date = DateTime.Now;
-        order.Status = "Recibido";
+        order.Status = "Pendiente"; // Unificado con la pantalla de la Cocina
         decimal totalProductos = 0;
 
         // 2. Procesar ítems: Validamos Stock y calculamos Precios
@@ -33,7 +33,7 @@ public class OrdersController : ControllerBase
             var product = await _context.Products.FindAsync(item.ProductId);
             if (product != null)
             {
-                // Validación de Stock ( para bebidas)
+                // Validación de Stock
                 if (product.Stock < item.Quantity)
                 {
                     return BadRequest($"No hay stock suficiente de {product.Name}. Disponible: {product.Stock}");
@@ -52,14 +52,13 @@ public class OrdersController : ControllerBase
         order.Total = totalProductos + order.DeliveryCost;
 
         // 4. Lógica de "Fiado": Si es Cuenta Corriente, actualizamos saldo del cliente
-        if (order.PaymentMethod == "Cuenta Corriente")
+        if (order.PaymentMethod == "Cuenta Corriente" && order.CustomerId.HasValue)
         {
-            var customer = await _context.Customers.FindAsync(order.CustomerId);
+            var customer = await _context.Customers.FindAsync(order.CustomerId.Value);
             if (customer != null)
             {
-                // El saldo baja (se hace más negativo) porque nos debe más
+                // Actualizamos la deuda. Si tu sistema suma deuda con saldos negativos:
                 customer.Balance -= order.Total;
-                _context.Entry(customer).State = EntityState.Modified;
             }
         }
 
@@ -80,7 +79,7 @@ public class OrdersController : ControllerBase
         return Ok(order);
     }
 
-    // GET: api/Orders 
+    // GET: api/Order 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Order>>> GetOrders()
     {
@@ -90,7 +89,7 @@ public class OrdersController : ControllerBase
             .ToListAsync();
     }
 
-    // GET: api/Orders/today 
+    // GET: api/Order/today 
     [HttpGet("today")]
     public async Task<ActionResult<IEnumerable<Order>>> GetTodayOrders()
     {
@@ -100,5 +99,42 @@ public class OrdersController : ControllerBase
             .Where(o => o.Date >= today)
             .OrderByDescending(o => o.Date)
             .ToListAsync();
+    }
+
+    // PATCH: api/Order/dispatch/5
+    [HttpPatch("dispatch/{id}")]
+    public async Task<IActionResult> DispatchOrder(int id)
+    {
+        var order = await _context.Orders.FindAsync(id);
+        if (order == null) return NotFound();
+
+        order.Status = "Despachado";
+        order.DispatchedAt = DateTime.Now;
+        await _context.SaveChangesAsync();
+        return Ok();
+    }
+
+    // PATCH: api/Order/dismiss30m/5
+    [HttpPatch("dismiss30m/{id}")]
+    public async Task<IActionResult> Dismiss30MinAlert(int id)
+    {
+        var order = await _context.Orders.FindAsync(id);
+        if (order == null) return NotFound();
+
+        order.Alert30Dismissed = true;
+        await _context.SaveChangesAsync();
+        return Ok();
+    }
+
+    // PATCH: api/Order/cancel/5
+    [HttpPatch("cancel/{id}")]
+    public async Task<IActionResult> CancelOrder(int id)
+    {
+        var order = await _context.Orders.FindAsync(id);
+        if (order == null) return NotFound();
+
+        order.Status = "Cancelado";
+        await _context.SaveChangesAsync();
+        return Ok();
     }
 }

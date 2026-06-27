@@ -1,3 +1,4 @@
+@page "/customers"
 @using RotiseriaWeb.Models
 @inject HttpClient Http
 @inject ISnackbar Snackbar
@@ -5,7 +6,7 @@
 <MudText Typo="Typo.h4" Class="mb-4" Color="Color.Primary">Gestión de Clientes</MudText>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenDialog">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenNewDialog">
         Nuevo Cliente
     </MudButton>
     <MudSwitch @bind-Value="onlyDebtors" Label="Ver solo deudores" Color="Color.Error" />
@@ -21,21 +22,49 @@
     <RowTemplate>
         <MudTd DataLabel="Nombre">@context.Name</MudTd>
         <MudTd DataLabel="Teléfono">@context.Phone</MudTd>
-        <MudTd DataLabel="Saldo" Style="@(context.Balance < 0 ? "color:red; font-weight:bold;" : "")">
+        <MudTd DataLabel="Saldo" Style="@(context.Balance < 0 ? "color:red; font-weight:bold;" : "color:green;")">
             $ @context.Balance
         </MudTd>
         <MudTd DataLabel="Acciones">
-            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Info">Editar</MudButton>
+            @* ACÁ LE AGREGAMOS EL EVENTO ONCLICK AL BOTÓN EDITAR *@
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Info"
+                       OnClick="@(() => OpenEditDialog(context))">
+                Editar
+            </MudButton>
         </MudTd>
     </RowTemplate>
 </MudTable>
+
+@* --- VENTANA FLOTANTE PARA CREAR O EDITAR --- *@
+<MudDialog @bind-Visible="isDialogOpen" Options="dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            @(isEditing ? "Editar Cliente" : "Nuevo Cliente")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="currentCustomer.Name" Label="Nombre" Required="true"
+                      RequiredError="El nombre es obligatorio" />
+        <MudTextField @bind-Value="currentCustomer.Phone" Label="Teléfono" />
+        <MudNumericField @bind-Value="currentCustomer.Balance" Label="Saldo (Deuda con signo negativo, ej: -5000)" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CloseDialog">Cancelar</MudButton>
+        <MudButton Color="Color.Success" Variant="Variant.Filled" OnClick="SaveCustomer">Guardar</MudButton>
+    </DialogActions>
+</MudDialog>
 
 @code {
     private List<RotiseriaWeb.Models.Customer> customers = new();
     private bool loading = true;
     private bool onlyDebtors = false;
 
-    // Propiedad calculada para el filtro
+    // Variables para controlar la ventanita flotante
+    private bool isDialogOpen = false;
+    private bool isEditing = false;
+    private RotiseriaWeb.Models.Customer currentCustomer = new();
+    private DialogOptions dialogOptions = new() { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+
     private IEnumerable<RotiseriaWeb.Models.Customer> displayedCustomers => onlyDebtors
         ? customers.Where(c => c.Balance < 0)
         : customers;
@@ -50,7 +79,6 @@
         loading = true;
         try
         {
-            // Intentamos traer los datos de la API
             var result = await Http.GetFromJsonAsync<List<RotiseriaWeb.Models.Customer>>("api/Customer");
             customers = result ?? new();
         }
@@ -65,8 +93,72 @@
         }
     }
 
-    private void OpenDialog()
+    // Abre la ventana en modo "CREAR"
+    private void OpenNewDialog()
     {
-        Snackbar.Add("Formulario en desarrollo...", Severity.Info);
+        isEditing = false;
+        currentCustomer = new RotiseriaWeb.Models.Customer(); // Limpiamos los datos
+        isDialogOpen = true;
+    }
+
+    // Abre la ventana en modo "EDITAR"
+    private void OpenEditDialog(RotiseriaWeb.Models.Customer customer)
+    {
+        isEditing = true;
+        // Hacemos una copia para no modificar la tabla hasta que el usuario apriete "Guardar"
+        currentCustomer = new RotiseriaWeb.Models.Customer
+        {
+            Id = customer.Id,
+            Name = customer.Name,
+            Phone = customer.Phone,
+            Balance = customer.Balance
+        };
+        isDialogOpen = true;
+    }
+
+    private void CloseDialog()
+    {
+        isDialogOpen = false;
+    }
+
+    // Manda los datos a la API (POST o PUT)
+    private async Task SaveCustomer()
+    {
+        if (string.IsNullOrWhiteSpace(currentCustomer.Name))
+        {
+            Snackbar.Add("El nombre es obligatorio", Severity.Warning);
+            return;
+        }
+
+        HttpResponseMessage response;
+
+        try
+        {
+            if (isEditing)
+            {
+                // Actualizar cliente existente (PUT)
+                response = await Http.PutAsJsonAsync($"api/Customer/{currentCustomer.Id}", currentCustomer);
+            }
+            else
+            {
+                // Crear cliente nuevo (POST)
+                response = await Http.PostAsJsonAsync("api/Customer", currentCustomer);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add(isEditing ? "Cliente actualizado" : "Cliente creado", Severity.Success);
+                isDialogOpen = false;
+                await LoadCustomers(); // Recargamos la tabla para ver los cambios
+            }
+            else
+            {
+                Snackbar.Add("Error al guardar en la base de datos", Severity.Error);
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Error de conexión al guardar", Severity.Error);
+        }
     }
 }

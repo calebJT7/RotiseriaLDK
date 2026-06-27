@@ -10,6 +10,8 @@
         <MudTh>Cliente</MudTh>
         <MudTh>Total</MudTh>
         <MudTh>Pago</MudTh>
+        @* NUEVA COLUMNA DE TIEMPO *@
+        <MudTh>Demora</MudTh>
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="Fecha">@context.Date.ToString("dd/MM HH:mm")</MudTd>
@@ -19,6 +21,13 @@
             <MudChip T="string" Color="@(context.PaymentMethod == "Cuenta Corriente" ? Color.Warning : Color.Success)">
                 @context.PaymentMethod
             </MudChip>
+        </MudTd>
+
+        @* CÁLCULO DE LA DEMORA *@
+        <MudTd DataLabel="Demora">
+            @(context.DispatchedAt.HasValue
+                ? Math.Round((context.DispatchedAt.Value - context.Date).TotalMinutes) + " min"
+                : "En preparación...")
         </MudTd>
     </RowTemplate>
 </MudTable>
@@ -31,7 +40,7 @@
     {
         try
         {
-            orders = await Http.GetFromJsonAsync<List<Order>>("api/Order") ?? new();
+            orders = await Http.GetFromJsonAsync<List<Order>>("api/Orders") ?? new();
         }
         finally
         {

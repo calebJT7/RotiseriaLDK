@@ -10,11 +10,15 @@ namespace RotiseriaWeb.Models
         public string DeliveryAddress { get; set; } = string.Empty;
         public string OrderType { get; set; } = "Delivery";
         public string PaymentMethod { get; set; } = "Efectivo";
-        public string Status { get; set; } = "Recibido";
         public string? Comments { get; set; }
         public decimal DeliveryCost { get; set; }
         public decimal Total { get; set; }
         public bool IsPaid { get; set; } = false;
         public List<OrderItem> Items { get; set; } = new();
+
+        // --- Propiedades de Cocina y Logística (¡Solo una vez!) ---
+        public string Status { get; set; } = "Pendiente";
+        public DateTime? DispatchedAt { get; set; }
+        public bool Alert30Dismissed { get; set; } = false;
     }
 }

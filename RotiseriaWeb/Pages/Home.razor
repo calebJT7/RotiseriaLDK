@@ -42,14 +42,14 @@
             <MudPaper Elevation="4" Class="pa-4 rounded-lg sticky-top">
                 <MudText Typo="Typo.h5" Class="mb-4">Finalizar Pedido</MudText>
 
-                @* NUEVO: Lista de productos agregados *@
+                @* Lista de productos agregados *@
                 @if (cart.Any())
                 {
                     <MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-2">Productos en el carrito:</MudText>
                     <MudList T="string" Dense="true" Class="mb-4 rounded-lg" Style="background-color: #f5f5f5;">
                         @foreach (var item in cart)
                         {
-                            <MudListItem>
+                            <MudListItem T="string">
                                 <div class="d-flex align-center justify-space-between">
                                     <div style="flex-grow: 1;">
                                         <MudText Typo="Typo.body2"><b>@item.ProductName</b></MudText>
@@ -69,7 +69,7 @@
                             <MudDivider />
                         }
                     </MudList>
-                    
+
                     <div class="d-flex justify-space-between mb-4">
                         <MudText Typo="Typo.h6">Total:</MudText>
                         <MudText Typo="Typo.h6" Color="Color.Primary"><b>$ @TotalCart</b></MudText>
@@ -80,34 +80,49 @@
                     <MudAlert Severity="Severity.Info" Class="mb-4">El carrito está vacío</MudAlert>
                 }
 
-                @* Datos del Cliente *@
-                <MudTextField @bind-Value="customerName" Label="Nombre del Cliente" Variant="Variant.Outlined"
-                              Margin="Margin.Dense" Class="mb-2" />
+                @* --- SECCIÓN DE CLIENTES --- *@
+                <MudSelect T="int?" @bind-Value="selectedCustomerId" Label="Seleccionar Cliente Registrado"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" Clearable="true">
+                    @foreach (var c in customers)
+                    {
+                        <MudSelectItem T="int?" Value="@c.Id">@c.Name</MudSelectItem>
+                    }
+                </MudSelect>
 
-                @* Selectores de Tipo y Pago *@
-                <MudSelect @bind-Value="orderType" Label="Tipo de Entrega" Variant="Variant.Outlined"
+                @* Si no selecciona ningún cliente, mostramos el campo para escribir a mano *@
+                @if (!selectedCustomerId.HasValue)
+                {
+                    <MudTextField @bind-Value="customerName" Label="O escribir nombre ocasional..."
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
+                }
+
+                @* Selectores de Tipo y Pago (Con T="string" para evitar errores) *@
+                <MudSelect T="string" @bind-Value="orderType" Label="Tipo de Entrega" Variant="Variant.Outlined"
                            Margin="Margin.Dense" Class="mb-2">
-                    <MudSelectItem Value="@("Local")">Mostrador</MudSelectItem>
-                    <MudSelectItem Value="@("Delivery")">Envío a Domicilio</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Local")">Mostrador</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Delivery")">Envío a Domicilio</MudSelectItem>
                 </MudSelect>
 
                 @if (orderType == "Delivery")
                 {
                     <MudTextField @bind-Value="deliveryAddress" Label="Dirección" Variant="Variant.Outlined"
                                   Margin="Margin.Dense" Class="mb-2" />
+
+                    @* CLAVE: Agregar T="decimal" para que la matemática se actualice en tiempo real *@
+                    <MudNumericField T="decimal" @bind-Value="deliveryCost" Label="Costo del Envío ($)"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" Min="0" />
                 }
 
                 <MudSelect @bind-Value="selectedPayment" Label="Medio de Pago" Variant="Variant.Outlined"
                            Margin="Margin.Dense" Class="mb-4">
                     <MudSelectItem Value="@("Efectivo")">Efectivo</MudSelectItem>
                     <MudSelectItem Value="@("Transferencia")">Transferencia</MudSelectItem>
-                    <MudSelectItem Value="@("Fiado")">Fiado (Deuda)</MudSelectItem>
-                    <MudSelectItem Value="@("Cuenta Corriente")">Cuenta Corriente</MudSelectItem>
+                    <MudSelectItem Value="@("Cuenta Corriente")">Cuenta Corriente (Fiado)</MudSelectItem>
                 </MudSelect>
 
-                @* Botón Final *@
+                @* Botón Final (Bloqueado si no hay productos o no hay nombre) *@
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large"
-                           Disabled="@(isProcessing || !cart.Any() || string.IsNullOrEmpty(customerName))"
+                           Disabled="@(isProcessing || !cart.Any() || (!selectedCustomerId.HasValue && string.IsNullOrEmpty(customerName)))"
                            OnClick="ConfirmarPedido">
                     @(isProcessing ? "PROCESANDO..." : "CONFIRMAR E IMPRIMIR")
                 </MudButton>
@@ -120,7 +135,14 @@
     private List<Product>? products;
     private List<CartItem> cart = new();
 
-    private decimal TotalCart => cart.Sum(x => x.Quantity * x.UnitPrice);
+    // Lista para los clientes
+    private List<RotiseriaWeb.Models.Customer> customers = new();
+    private int? selectedCustomerId;
+
+    private decimal deliveryCost = 1500; // Costo fijo por defecto
+
+    // El total ahora suma los productos + el costo de envío (si corresponde)
+    private decimal TotalCart => cart.Sum(x => x.Quantity * x.UnitPrice) + (orderType == "Delivery" ? deliveryCost : 0);
 
     private bool isProcessing = false;
     private string selectedPayment = "Efectivo";
@@ -133,6 +155,8 @@
         try
         {
             products = await Http.GetFromJsonAsync<List<Product>>("api/Producto");
+            var clientes = await Http.GetFromJsonAsync<List<RotiseriaWeb.Models.Customer>>("api/Customer");
+            if (clientes != null) customers = clientes;
         }
         catch (Exception ex)
         {
@@ -155,7 +179,6 @@
         Snackbar.Add($"{prod.Name} agregado", Severity.Success);
     }
 
-    // Nueva función para sumar desde la lista del carrito sin mandar Snackbar molesto
     private void AddToCartFromList(CartItem item)
     {
         item.Quantity++;
@@ -181,17 +204,36 @@
 
     private async Task ConfirmarPedido()
     {
+        // Validación de fiado
+        if (selectedPayment == "Cuenta Corriente" && !selectedCustomerId.HasValue)
+        {
+            Snackbar.Add("Para vender por Cuenta Corriente, debes seleccionar un cliente registrado de la lista.",
+Severity.Warning);
+            return;
+        }
+
         isProcessing = true;
+
+        string finalCustomerName = customerName;
+        if (selectedCustomerId.HasValue)
+        {
+            var cliente = customers.FirstOrDefault(c => c.Id == selectedCustomerId.Value);
+            if (cliente != null) finalCustomerName = cliente.Name;
+        }
 
         var nuevoPedido = new Order
         {
-            ClientName = customerName,
+            CustomerId = selectedCustomerId,
+            ClientName = finalCustomerName,
             Items = cart.Select(x => new OrderItem
             {
                 ProductId = x.ProductId,
                 Quantity = x.Quantity
             }).ToList(),
-            DeliveryCost = 0,
+
+            // --- ACÁ ESTABA EL PROBLEMA: AHORA MANDA EL COSTO REAL ---
+            DeliveryCost = orderType == "Delivery" ? deliveryCost : 0,
+
             PaymentMethod = selectedPayment,
             DeliveryAddress = deliveryAddress,
             OrderType = orderType
@@ -201,9 +243,10 @@
 
         if (response.IsSuccessStatusCode)
         {
-            Snackbar.Add("¡Pedido enviado y stock actualizado!", Severity.Success);
+            Snackbar.Add("¡Pedido enviado a cocina y stock actualizado!", Severity.Success);
             cart.Clear();
             customerName = "";
+            selectedCustomerId = null;
             deliveryAddress = "";
         }
         else

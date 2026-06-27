@@ -1,0 +1,119 @@
+@page "/cocina"
+@using RotiseriaWeb.Models
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@using System.Timers
+@implements IDisposable
+
+<MudText Typo="Typo.h4" Class="mb-4" Color="Color.Primary">Pedidos Activos</MudText>
+
+<MudGrid>
+    @foreach (var order in pendingOrders)
+    {
+        @* ACÁ ESTÁ LA CORRECCIÓN: Usamos order.Date en lugar de order.CreatedAt *@
+        var minutosTranscurridos = (int)(DateTime.Now - order.Date).TotalMinutes;
+
+        // Lógica de colores de alerta
+        var cardColor = "background-color: var(--mud-palette-surface);";
+        var showAlert30 = minutosTranscurridos >= 30 && minutosTranscurridos < 45 && !order.Alert30Dismissed;
+        var showAlert45 = minutosTranscurridos >= 45;
+
+        if (showAlert45) cardColor = "background-color: #ffebee; border: 2px solid red;"; // Rojo fuego (45m+)
+        else if (showAlert30) cardColor = "background-color: #fff8e1; border: 2px solid orange;"; // Naranja alerta (30m)
+
+        <MudItem xs="12" sm="6" md="4">
+            <MudCard Elevation="4" Style="@cardColor">
+                <MudCardContent>
+                    <MudText Typo="Typo.h6">@order.ClientName - @order.OrderType</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Hace @minutosTranscurridos min</MudText>
+
+                    <MudDivider Class="my-2" />
+                    <MudDivider Class="my-2" />
+                    @* LE AGREGAMOS T="string" a la lista y al item *@
+                    <MudList T="string" Dense="true">
+                        @foreach (var item in order.Items)
+                        {
+                            <MudListItem T="string">@item.Quantity x @item.ProductName</MudListItem>
+                        }
+                    </MudList>
+                </MudCardContent>
+                <MudCardActions Class="d-flex justify-space-between">
+                    @* Botón OK Alerta 30 min *@
+                    @if (showAlert30)
+                    {
+                        <MudButton Color="Color.Warning" Variant="Variant.Filled" OnClick="@(() => DismissAlert(order.Id))">
+                            OK (30m)
+                        </MudButton>
+                    }
+                    @* Si pasan 45 min, ya no hay OK, tiene que sacarlo urgente *@
+                    @if (showAlert45)
+                    {
+                        <MudText Color="Color.Error" Typo="Typo.button"><b>DEMORA</b></MudText>
+                    }
+
+                    <div>
+                        @* NUEVO BOTON DE CANCELAR *@
+                        <MudButton Color="Color.Error" Variant="Variant.Text" OnClick="@(() => CancelarPedido(order.Id))">
+                            CANCELAR
+                        </MudButton>
+
+                        <MudButton Color="Color.Success" Variant="Variant.Filled"
+                                   OnClick="@(() => MarcarDespachado(order.Id))" Class="ml-2">
+                            DESPACHAR
+                        </MudButton>
+                    </div>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    private List<Order> pendingOrders = new();
+    private Timer _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrders();
+
+        // Hacemos que la pantalla se actualice sola cada 1 minuto (60000 ms) para que el reloj corra
+        _timer = new Timer(60000);
+        _timer.Elapsed += async (sender, e) => { await InvokeAsync(StateHasChanged); };
+        _timer.Start();
+    }
+
+    private async Task LoadOrders()
+    {
+        // CORRECCIÓN: Ajustado a "api/Order"
+        var allOrders = await Http.GetFromJsonAsync<List<Order>>("api/Orders");
+        pendingOrders = allOrders?.Where(o => o.Status == "Pendiente").ToList() ?? new();
+        pendingOrders = allOrders?.Where(o => o.Status != "Despachado" && o.Status != "Cancelado").ToList() ?? new();
+    }
+
+    private async Task DismissAlert(int orderId)
+    {
+        // CORRECCIÓN: Ajustado a "api/Order"
+        await Http.PatchAsync($"api/Orders/dismiss30m/{orderId}", null);
+        var order = pendingOrders.FirstOrDefault(o => o.Id == orderId);
+        if (order != null) order.Alert30Dismissed = true;
+    }
+
+    private async Task MarcarDespachado(int orderId)
+    {
+        // CORRECCIÓN: Ajustado a "api/Order"
+        await Http.PatchAsync($"api/Orders/dispatch/{orderId}", null);
+        Snackbar.Add("Pedido entregado", Severity.Success);
+        await LoadOrders(); // Recargamos para que desaparezca
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose(); // Limpiamos el timer si cambiamos de página
+    }
+    private async Task CancelarPedido(int orderId)
+    {
+        await Http.PatchAsync($"api/Order/cancel/{orderId}", null);
+        Snackbar.Add("Pedido Cancelado", Severity.Error);
+        await LoadOrders();
+    }
+}
