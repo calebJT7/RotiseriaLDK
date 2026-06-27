@@ -46,32 +46,50 @@
                 @if (cart.Any())
                 {
                     <MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-2">Productos en el carrito:</MudText>
-                    <MudList T="string" Dense="true" Class="mb-4 rounded-lg" Style="background-color: #f5f5f5;">
+
+                    @* Lista de productos (arreglado el color y el hover) *@
+                    <div class="mb-4 d-flex flex-column gap-2">
                         @foreach (var item in cart)
                         {
-                            <MudListItem T="string">
+                            <MudPaper Elevation="1" Class="pa-2"
+                                      Style="background-color: #2a2a2a; color: white; border-radius: 8px;">
                                 <div class="d-flex align-center justify-space-between">
                                     <div style="flex-grow: 1;">
                                         <MudText Typo="Typo.body2"><b>@item.ProductName</b></MudText>
-                                        <MudText Typo="Typo.caption">$@item.UnitPrice c/u</MudText>
+                                        <MudText Typo="Typo.caption" Style="color: #bbbbbb;">$@item.UnitPrice c/u</MudText>
                                     </div>
                                     <div class="d-flex align-center">
                                         <MudIconButton Icon="@Icons.Material.Filled.Remove" Size="Size.Small"
-                                                       OnClick="@(() => RestarCantidad(item))" />
+                                                       Color="Color.Error" OnClick="@(() => RestarCantidad(item))" />
                                         <MudText Typo="Typo.body2" Class="mx-2">@item.Quantity</MudText>
-                                        <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" Color="Color.Primary"
+                                        <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" Color="Color.Success"
                                                        OnClick="@(() => AddToCartFromList(item))" />
                                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
                                                        Color="Color.Error" OnClick="@(() => RemoveFromCart(item))" Class="ml-1" />
                                     </div>
                                 </div>
-                            </MudListItem>
-                            <MudDivider />
+                            </MudPaper>
                         }
-                    </MudList>
+                    </div>
+
+                    @* --- NUEVA SECCIÓN DE SUBTOTALES --- *@
+                    <div class="d-flex justify-space-between mb-1">
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">Subtotal Comida:</MudText>
+                        <MudText Typo="Typo.body1" Color="Color.Secondary"><b>$ @SubtotalCart</b></MudText>
+                    </div>
+
+                    @if (orderType == "Delivery")
+                    {
+                        <div class="d-flex justify-space-between mb-1">
+                            <MudText Typo="Typo.body1" Color="Color.Secondary">Costo Envío:</MudText>
+                            <MudText Typo="Typo.body1" Color="Color.Secondary"><b>$ @deliveryCost</b></MudText>
+                        </div>
+                    }
+
+                    <MudDivider Class="my-2" />
 
                     <div class="d-flex justify-space-between mb-4">
-                        <MudText Typo="Typo.h6">Total:</MudText>
+                        <MudText Typo="Typo.h6">Total General:</MudText>
                         <MudText Typo="Typo.h6" Color="Color.Primary"><b>$ @TotalCart</b></MudText>
                     </div>
                 }
@@ -108,7 +126,7 @@
                     <MudTextField @bind-Value="deliveryAddress" Label="Dirección" Variant="Variant.Outlined"
                                   Margin="Margin.Dense" Class="mb-2" />
 
-                    @* CLAVE: Agregar T="decimal" para que la matemática se actualice en tiempo real *@
+                    @* Campo T="decimal" para el costo del delivery *@
                     <MudNumericField T="decimal" @bind-Value="deliveryCost" Label="Costo del Envío ($)"
                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" Min="0" />
                 }
@@ -141,8 +159,12 @@
 
     private decimal deliveryCost = 1500; // Costo fijo por defecto
 
-    // El total ahora suma los productos + el costo de envío (si corresponde)
-    private decimal TotalCart => cart.Sum(x => x.Quantity * x.UnitPrice) + (orderType == "Delivery" ? deliveryCost : 0);
+    // --- NUEVA MATEMÁTICA ---
+    // Mide únicamente lo que valen los productos en el carrito
+    private decimal SubtotalCart => cart.Sum(x => x.Quantity * x.UnitPrice);
+
+    // El total final es el subtotal + el envío (si es que eligieron Delivery)
+    private decimal TotalCart => SubtotalCart + (orderType == "Delivery" ? deliveryCost : 0);
 
     private bool isProcessing = false;
     private string selectedPayment = "Efectivo";
@@ -231,7 +253,7 @@ Severity.Warning);
                 Quantity = x.Quantity
             }).ToList(),
 
-            // --- ACÁ ESTABA EL PROBLEMA: AHORA MANDA EL COSTO REAL ---
+            // Manda el costo real del envío
             DeliveryCost = orderType == "Delivery" ? deliveryCost : 0,
 
             PaymentMethod = selectedPayment,

@@ -10,30 +10,33 @@
 <MudGrid>
     @foreach (var order in pendingOrders)
     {
-        @* ACÁ ESTÁ LA CORRECCIÓN: Usamos order.Date en lugar de order.CreatedAt *@
         var minutosTranscurridos = (int)(DateTime.Now - order.Date).TotalMinutes;
 
-        // Lógica de colores de alerta
+        // Lógica de colores de alerta (Arreglado para alto contraste con letras blancas)
         var cardColor = "background-color: var(--mud-palette-surface);";
         var showAlert30 = minutosTranscurridos >= 30 && minutosTranscurridos < 45 && !order.Alert30Dismissed;
         var showAlert45 = minutosTranscurridos >= 45;
 
-        if (showAlert45) cardColor = "background-color: #ffebee; border: 2px solid red;"; // Rojo fuego (45m+)
-        else if (showAlert30) cardColor = "background-color: #fff8e1; border: 2px solid orange;"; // Naranja alerta (30m)
+        // Utilizamos colores oscuros intensos para que el texto blanco resalte desde lejos
+        if (showAlert45)
+            cardColor = "background-color: #b71c1c; color: white; border: 2px solid #ff5252;"; // Rojo Oscuro
+        else if (showAlert30)
+            cardColor = "background-color: #e65100; color: white; border: 2px solid #ffb74d;"; // Naranja Oscuro
 
         <MudItem xs="12" sm="6" md="4">
             <MudCard Elevation="4" Style="@cardColor">
                 <MudCardContent>
-                    <MudText Typo="Typo.h6">@order.ClientName - @order.OrderType</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Hace @minutosTranscurridos min</MudText>
+                    <MudText Typo="Typo.h6" Style="font-weight: bold;">@order.ClientName - @order.OrderType</MudText>
+                    <MudText Typo="Typo.body2" Style="color: #eeeeee;">Hace @minutosTranscurridos min</MudText>
 
-                    <MudDivider Class="my-2" />
-                    <MudDivider Class="my-2" />
-                    @* LE AGREGAMOS T="string" a la lista y al item *@
+                    <MudDivider Class="my-2" Style="background-color: rgba(255,255,255,0.2);" />
+
                     <MudList T="string" Dense="true">
                         @foreach (var item in order.Items)
                         {
-                            <MudListItem T="string">@item.Quantity x @item.ProductName</MudListItem>
+                            <MudListItem T="string">
+                                <MudText Typo="Typo.body1"><b>@item.Quantity x @item.ProductName</b></MudText>
+                            </MudListItem>
                         }
                     </MudList>
                 </MudCardContent>
@@ -41,19 +44,21 @@
                     @* Botón OK Alerta 30 min *@
                     @if (showAlert30)
                     {
-                        <MudButton Color="Color.Warning" Variant="Variant.Filled" OnClick="@(() => DismissAlert(order.Id))">
+                        <MudButton Style="background-color: #ff9800; color: white;" Variant="Variant.Filled"
+                                   OnClick="@(() => DismissAlert(order.Id))">
                             OK (30m)
                         </MudButton>
                     }
                     @* Si pasan 45 min, ya no hay OK, tiene que sacarlo urgente *@
                     @if (showAlert45)
                     {
-                        <MudText Color="Color.Error" Typo="Typo.button"><b>DEMORA</b></MudText>
+                        <MudText Style="color: #ffcccc; font-weight: bold;" Typo="Typo.button">DEMORA CRÍTICA</MudText>
                     }
 
                     <div>
-                        @* NUEVO BOTON DE CANCELAR *@
-                        <MudButton Color="Color.Error" Variant="Variant.Text" OnClick="@(() => CancelarPedido(order.Id))">
+                        @* CORRECCIÓN: Botón Cancelar ahora apunta a api/Orders (con S) *@
+                        <MudButton Color="Color.Error" Variant="Variant.Filled" Style="background-color: rgba(255,0,0,0.2);"
+                                   OnClick="@(() => CancelarPedido(order.Id))">
                             CANCELAR
                         </MudButton>
 
@@ -84,15 +89,13 @@
 
     private async Task LoadOrders()
     {
-        // CORRECCIÓN: Ajustado a "api/Order"
         var allOrders = await Http.GetFromJsonAsync<List<Order>>("api/Orders");
+        // Limpié el código duplicado: Solo traemos los que están pendientes
         pendingOrders = allOrders?.Where(o => o.Status == "Pendiente").ToList() ?? new();
-        pendingOrders = allOrders?.Where(o => o.Status != "Despachado" && o.Status != "Cancelado").ToList() ?? new();
     }
 
     private async Task DismissAlert(int orderId)
     {
-        // CORRECCIÓN: Ajustado a "api/Order"
         await Http.PatchAsync($"api/Orders/dismiss30m/{orderId}", null);
         var order = pendingOrders.FirstOrDefault(o => o.Id == orderId);
         if (order != null) order.Alert30Dismissed = true;
@@ -100,20 +103,21 @@
 
     private async Task MarcarDespachado(int orderId)
     {
-        // CORRECCIÓN: Ajustado a "api/Order"
         await Http.PatchAsync($"api/Orders/dispatch/{orderId}", null);
         Snackbar.Add("Pedido entregado", Severity.Success);
         await LoadOrders(); // Recargamos para que desaparezca
     }
 
+    private async Task CancelarPedido(int orderId)
+    {
+        // CORRECCIÓN: Agregada la 's' a Orders
+        await Http.PatchAsync($"api/Orders/cancel/{orderId}", null);
+        Snackbar.Add("Pedido Cancelado", Severity.Error);
+        await LoadOrders();
+    }
+
     public void Dispose()
     {
         _timer?.Dispose(); // Limpiamos el timer si cambiamos de página
-    }
-    private async Task CancelarPedido(int orderId)
-    {
-        await Http.PatchAsync($"api/Order/cancel/{orderId}", null);
-        Snackbar.Add("Pedido Cancelado", Severity.Error);
-        await LoadOrders();
     }
 }

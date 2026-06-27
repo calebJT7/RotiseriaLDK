@@ -67,18 +67,23 @@ public class ReportsController : ControllerBase
     [HttpGet("monthly-history")]
     public async Task<ActionResult> GetMonthlyHistory()
     {
-        var history = await _context.Orders
+        // 1. Descargamos los pedidos del último año a la memoria (ignorando los fiados sin pagar)
+        var orders = await _context.Orders
             .AsNoTracking()
-            .Where(o => o.Date >= DateTime.Now.AddYears(-1))
+            .Where(o => o.Date >= DateTime.Now.AddYears(-1) && o.PaymentMethod != "Cuenta Corriente")
+            .ToListAsync();
+
+        // 2. Agrupamos por mes en la memoria (¡Esto no falla nunca!)
+        var history = orders
             .GroupBy(o => new { o.Date.Year, o.Date.Month })
             .Select(g => new
             {
                 Label = $"{g.Key.Month}/{g.Key.Year}",
-                Total = g.Sum(o => o.Total),
+                Total = g.Sum(o => o.Total - o.DeliveryCost), // Ventas netas sin delivery
                 OrderCount = g.Count()
             })
-            .OrderByDescending(x => x.Label)
-            .ToListAsync();
+            .OrderByDescending(x => x.Label) // El mes más reciente arriba
+            .ToList();
 
         return Ok(history);
     }
