@@ -1,5 +1,11 @@
 # LDK Rotiseria - POS & Business Management System
 
+![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?style=flat&logo=dotnet)
+![Blazor](https://img.shields.io/badge/Blazor-WebAssembly-512BD4?style=flat&logo=blazor)
+![SQLite](https://img.shields.io/badge/SQLite-Database-003B57?style=flat&logo=sqlite)
+![Status](https://img.shields.io/badge/Status-Completed-success?style=flat)
+
+
 A comprehensive Point of Sale (POS) and business management system developed for a real-world gastronomic enterprise. Designed with a local network (LAN) architecture to operate with zero cloud infrastructure costs (On-Premise), allowing multiple devices (smartphones, tablets) to connect to a central PC acting as a local server.
 
 ## Key Features
@@ -72,3 +78,5 @@ Este sistema está diseñado para ejecutarse en una red local (WiFi del negocio)
     Asegurarse de que el servidor escuche en `0.0.0.0` en lugar de `localhost` para permitir conexiones entrantes en la LAN.
 4.  **Ejecución:**
     Trasladar los archivos publicados a la PC principal del negocio. El resto de los dispositivos accederán mediante la IP local asignada al servidor (Ej: `http://192.168.1.X:5080`).
+
+    [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect_with_me-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/caleb-toledo-356b56336/)
