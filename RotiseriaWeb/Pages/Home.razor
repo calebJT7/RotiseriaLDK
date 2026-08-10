@@ -3,6 +3,7 @@
 @using MudBlazor
 @inject HttpClient Http
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
 <MudContainer MaxWidth="MaxWidth.False" Class="mt-4">
     <MudGrid>
@@ -98,51 +99,68 @@
                     <MudAlert Severity="Severity.Info" Class="mb-4">El carrito está vacío</MudAlert>
                 }
 
-                @* --- SECCIÓN DE CLIENTES --- *@
-                <MudSelect T="int?" @bind-Value="selectedCustomerId" Label="Seleccionar Cliente Registrado"
-                           Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" Clearable="true">
-                    @foreach (var c in customers)
-                    {
-                        <MudSelectItem T="int?" Value="@c.Id">@c.Name</MudSelectItem>
-                    }
-                </MudSelect>
-
-                @* Si no selecciona ningún cliente, mostramos el campo para escribir a mano *@
-                @if (!selectedCustomerId.HasValue)
-                {
-                    <MudTextField @bind-Value="customerName" Label="O escribir nombre ocasional..."
-                                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
-                }
-
-                @* Selectores de Tipo y Pago (Con T="string" para evitar errores) *@
-                <MudSelect T="string" @bind-Value="orderType" Label="Tipo de Entrega" Variant="Variant.Outlined"
+                @* Selectores de Tipo de Entrega / Atención *@
+                <MudSelect T="string" @bind-Value="orderType" Label="Tipo de Pedido" Variant="Variant.Outlined"
                            Margin="Margin.Dense" Class="mb-2">
-                    <MudSelectItem T="string" Value="@("Local")">Mostrador</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Local")">Mostrador (Para llevar)</MudSelectItem>
                     <MudSelectItem T="string" Value="@("Delivery")">Envío a Domicilio</MudSelectItem>
+
+                    @* NUEVA OPCIÓN DE SALÓN *@
+                    <MudSelectItem T="string" Value="@("Salon")">Comer en Salón (Mesa)</MudSelectItem>
                 </MudSelect>
 
-                @if (orderType == "Delivery")
+                @* OPCIONES ESPECÍFICAS SEGÚN EL TIPO DE PEDIDO *@
+                @if (orderType == "Salon")
+                {
+                    <MudSelect T="int?" @bind-Value="selectedTableId" Label="Seleccionar Mesa" Variant="Variant.Outlined"
+                               Margin="Margin.Dense" Class="mb-2">
+                        @foreach (var t in tables)
+                        {
+                            <MudSelectItem T="int?" Value="@t.Id">
+                                Mesa @t.Number @(t.Status == "Ocupada" ? "🔴 (Adicionar)" : "🟢 (Libre)")
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                }
+                else if (orderType == "Delivery")
                 {
                     <MudTextField @bind-Value="deliveryAddress" Label="Dirección" Variant="Variant.Outlined"
                                   Margin="Margin.Dense" Class="mb-2" />
 
-                    @* Campo T="decimal" para el costo del delivery *@
                     <MudNumericField T="decimal" @bind-Value="deliveryCost" Label="Costo del Envío ($)"
                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" Min="0" />
                 }
 
-                <MudSelect @bind-Value="selectedPayment" Label="Medio de Pago" Variant="Variant.Outlined"
+                @* SECCIÓN DE CLIENTES (Oculta si es para Mesa, porque la mesa ES el cliente) *@
+                @if (orderType != "Salon")
+                {
+                    <MudSelect T="int?" @bind-Value="selectedCustomerId" Label="Seleccionar Cliente Registrado"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" Clearable="true">
+                        @foreach (var c in customers)
+                        {
+                            <MudSelectItem T="int?" Value="@c.Id">@c.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+
+                    @if (!selectedCustomerId.HasValue)
+                    {
+                        <MudTextField @bind-Value="customerName" Label="O escribir nombre ocasional..."
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
+                    }
+                }
+
+                <MudSelect T="string" @bind-Value="selectedPayment" Label="Medio de Pago" Variant="Variant.Outlined"
                            Margin="Margin.Dense" Class="mb-4">
-                    <MudSelectItem Value="@("Efectivo")">Efectivo</MudSelectItem>
-                    <MudSelectItem Value="@("Transferencia")">Transferencia</MudSelectItem>
-                    <MudSelectItem Value="@("Cuenta Corriente")">Cuenta Corriente (Fiado)</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Efectivo")">Efectivo</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Transferencia")">Transferencia</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Cuenta Corriente")">Cuenta Corriente (Fiado)</MudSelectItem>
                 </MudSelect>
 
-                @* Botón Final (Bloqueado si no hay productos o no hay nombre) *@
+                @* Botón Final *@
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large"
-                           Disabled="@(isProcessing || !cart.Any() || (!selectedCustomerId.HasValue && string.IsNullOrEmpty(customerName)))"
+                           Disabled="@(isProcessing || !cart.Any() || (orderType != "Salon" && !selectedCustomerId.HasValue && string.IsNullOrEmpty(customerName)))"
                            OnClick="ConfirmarPedido">
-                    @(isProcessing ? "PROCESANDO..." : "CONFIRMAR E IMPRIMIR")
+                    @(isProcessing ? "PROCESANDO..." : "CONFIRMAR ENVIAR A COCINA")
                 </MudButton>
             </MudPaper>
         </MudItem>
@@ -152,18 +170,18 @@
 @code {
     private List<Product>? products;
     private List<CartItem> cart = new();
-
-    // Lista para los clientes
     private List<RotiseriaWeb.Models.Customer> customers = new();
+
+    // Lista para las mesas
+    private List<Table> tables = new();
+
     private int? selectedCustomerId;
+    private int? selectedTableId; // Guarda qué mesa se eligió
 
-    private decimal deliveryCost = 1500; // Costo fijo por defecto
+    private decimal deliveryCost = 1500;
 
-    // --- NUEVA MATEMÁTICA ---
-    // Mide únicamente lo que valen los productos en el carrito
+    // --- MATEMÁTICA ---
     private decimal SubtotalCart => cart.Sum(x => x.Quantity * x.UnitPrice);
-
-    // El total final es el subtotal + el envío (si es que eligieron Delivery)
     private decimal TotalCart => SubtotalCart + (orderType == "Delivery" ? deliveryCost : 0);
 
     private bool isProcessing = false;
@@ -177,8 +195,13 @@
         try
         {
             products = await Http.GetFromJsonAsync<List<Product>>("api/Producto");
+
             var clientes = await Http.GetFromJsonAsync<List<RotiseriaWeb.Models.Customer>>("api/Customer");
             if (clientes != null) customers = clientes;
+
+            // TRUCO DE CACHÉ: Le agregamos la hora exacta (?t=...) para que el navegador siempre pida la última versión
+            var listaMesas = await Http.GetFromJsonAsync<List<Table>>($"api/Tables?t={DateTime.Now.Ticks}");
+            if (listaMesas != null) tables = listaMesas;
         }
         catch (Exception ex)
         {
@@ -226,12 +249,29 @@
 
     private async Task ConfirmarPedido()
     {
-        // Validación de fiado
-        if (selectedPayment == "Cuenta Corriente" && !selectedCustomerId.HasValue)
+        // --- VALIDACIONES NUEVAS ---
+        if (orderType == "Salon" && !selectedTableId.HasValue)
         {
-            Snackbar.Add("Para vender por Cuenta Corriente, debes seleccionar un cliente registrado de la lista.",
-Severity.Warning);
+            Snackbar.Add("Para Salón, debes seleccionar un número de Mesa.", Severity.Warning);
             return;
+        }
+
+        if (selectedPayment == "Cuenta Corriente" && !selectedCustomerId.HasValue && orderType != "Salon")
+        {
+            Snackbar.Add("Para vender por Cuenta Corriente, debes seleccionar un cliente registrado.", Severity.Warning);
+            return;
+        }
+
+        // --- ALERTA INTELIGENTE PARA MESAS OCUPADAS ---
+        if (orderType == "Salon" && selectedTableId.HasValue)
+        {
+            var mesaSeleccionada = tables.FirstOrDefault(t => t.Id == selectedTableId.Value);
+            if (mesaSeleccionada != null && mesaSeleccionada.Status == "Ocupada")
+            {
+                // Mostramos cartel de advertencia. Si la cajera toca "Cancelar", frenamos todo.
+                bool confirmado = await JS.InvokeAsync<bool>("confirm", $"¡ATENCIÓN!\nLa Mesa {mesaSeleccionada.Number} ya está OCUPADA.\n\n¿Estás seguro de que querés AGREGAR (adicionar) estos productos a esa misma cuenta?");
+                if (!confirmado) return;
+            }
         }
 
         isProcessing = true;
@@ -246,18 +286,21 @@ Severity.Warning);
         var nuevoPedido = new Order
         {
             CustomerId = selectedCustomerId,
-            ClientName = finalCustomerName,
+            // Si es Salón, la API va a forzar el nombre a "Mesa X", por ahora lo mandamos vacío
+            ClientName = orderType == "Salon" ? "" : finalCustomerName,
+
+            // ¡ESTO FALTABA! Enviar el ID de la mesa a la base de datos
+            TableId = orderType == "Salon" ? selectedTableId : null,
+
             Items = cart.Select(x => new OrderItem
             {
                 ProductId = x.ProductId,
                 Quantity = x.Quantity
             }).ToList(),
 
-            // Manda el costo real del envío
             DeliveryCost = orderType == "Delivery" ? deliveryCost : 0,
-
             PaymentMethod = selectedPayment,
-            DeliveryAddress = deliveryAddress,
+            DeliveryAddress = orderType == "Delivery" ? deliveryAddress : "",
             OrderType = orderType
         };
 
@@ -269,7 +312,12 @@ Severity.Warning);
             cart.Clear();
             customerName = "";
             selectedCustomerId = null;
+            selectedTableId = null;
             deliveryAddress = "";
+
+            // Recargamos el estado de las mesas forzando sin caché
+            var listaMesas = await Http.GetFromJsonAsync<List<Table>>($"api/Tables?t={DateTime.Now.Ticks}");
+            if (listaMesas != null) tables = listaMesas;
         }
         else
         {

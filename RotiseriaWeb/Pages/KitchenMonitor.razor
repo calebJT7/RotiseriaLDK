@@ -26,52 +26,65 @@
         <MudItem xs="12" sm="6" md="4">
             <MudCard Elevation="4" Style="@cardColor">
                 <MudCardContent>
-                    <MudText Typo="Typo.h6" Style="font-weight: bold;">@order.ClientName - @order.OrderType</MudText>
-                    <MudText Typo="Typo.body2" Style="color: #eeeeee;">Hace @minutosTranscurridos min</MudText>
+                    @* TEXTO GIGANTE Y AMARILLO PARA LA MESA O NOMBRE DEL CLIENTE *@
+                    <MudText Typo="Typo.h4" Style="font-weight: bold; color: #ffeb3b; text-transform: uppercase;">
+                        @order.ClientName</MudText>
+                        <MudText Typo="Typo.h6">@order.OrderType</MudText>
+                        <MudText Typo="Typo.body2" Style="color: #eeeeee;">Hace @minutosTranscurridos min</MudText>
 
-                    <MudDivider Class="my-2" Style="background-color: rgba(255,255,255,0.2);" />
+                        <MudDivider Class="my-2" Style="background-color: rgba(255,255,255,0.2);" />
 
-                    <MudList T="string" Dense="true">
-                        @foreach (var item in order.Items)
-                        {
-                            <MudListItem T="string">
-                                <MudText Typo="Typo.body1"><b>@item.Quantity x @item.ProductName</b></MudText>
-                            </MudListItem>
-                        }
-                    </MudList>
-                </MudCardContent>
-                <MudCardActions Class="d-flex justify-space-between">
-                    @* Botón OK Alerta 30 min *@
-                    @if (showAlert30)
-                    {
-                        <MudButton Style="background-color: #ff9800; color: white;" Variant="Variant.Filled"
-                                   OnClick="@(() => DismissAlert(order.Id))">
-                            OK (30m)
-                        </MudButton>
-                    }
-                    @* Si pasan 45 min, ya no hay OK, tiene que sacarlo urgente *@
-                    @if (showAlert45)
-                    {
-                        <MudText Style="color: #ffcccc; font-weight: bold;" Typo="Typo.button">DEMORA CRÍTICA</MudText>
-                    }
+                        <MudList T="string" Dense="true">
+                            @foreach (var item in order.Items)
+                            {
+                                <MudListItem T="string">
+                                    <MudText Typo="Typo.body1"><b>@item.Quantity x @item.ProductName</b></MudText>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    </MudCardContent>
 
-                    <div>
-                        @* CORRECCIÓN: Botón Cancelar ahora apunta a api/Orders (con S) *@
-                        <MudButton Color="Color.Error" Variant="Variant.Filled" Style="background-color: rgba(255,0,0,0.2);"
-                                   OnClick="@(() => CancelarPedido(order.Id))">
-                            CANCELAR
-                        </MudButton>
+                    @* Ajustamos las acciones para que los botones entren bien *@
+                    <MudCardActions Class="d-flex flex-column align-stretch gap-2">
+                        <div class="d-flex justify-space-between w-100">
+                            @* Botón OK Alerta 30 min *@
+                            @if (showAlert30)
+                            {
+                                <MudButton Style="background-color: #ff9800; color: white;" Variant="Variant.Filled"
+                                           OnClick="@(() => DismissAlert(order.Id))">
+                                    OK (30m)
+                                </MudButton>
+                            }
+                            @* Si pasan 45 min, ya no hay OK, tiene que sacarlo urgente *@
+                            @if (showAlert45)
+                            {
+                                <MudText Style="color: #ffcccc; font-weight: bold;" Typo="Typo.button">DEMORA CRÍTICA</MudText>
+                            }
+                        </div>
 
-                        <MudButton Color="Color.Success" Variant="Variant.Filled"
-                                   OnClick="@(() => MarcarDespachado(order.Id))" Class="ml-2">
-                            DESPACHAR
-                        </MudButton>
-                    </div>
-                </MudCardActions>
-            </MudCard>
-        </MudItem>
-    }
-</MudGrid>
+                        @* Fila de Botones de Acción *@
+                        <div class="d-flex flex-wrap gap-2 justify-space-between w-100 mt-2">
+                            <MudButton Color="Color.Error" Variant="Variant.Filled" Style="background-color: rgba(255,0,0,0.2);"
+                                       OnClick="@(() => CancelarPedido(order.Id))">
+                                CANCELAR
+                            </MudButton>
+
+                            @* NUEVO BOTÓN DE REIMPRIMIR *@
+                            <MudButton Color="Color.Info" Variant="Variant.Filled"
+                                       Style="background-color: rgba(33, 150, 243, 0.2);" OnClick="@(() => Reimprimir(order.Id))">
+                                🖨️ REIMPRIMIR
+                            </MudButton>
+
+                            <MudButton Color="Color.Success" Variant="Variant.Filled"
+                                       OnClick="@(() => MarcarDespachado(order.Id))">
+                                DESPACHAR
+                            </MudButton>
+                        </div>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
 
 @code {
     private List<Order> pendingOrders = new();
@@ -94,6 +107,13 @@
         pendingOrders = allOrders?.Where(o => o.Status == "Pendiente").ToList() ?? new();
     }
 
+    // --- NUEVA FUNCIÓN PARA REIMPRIMIR ---
+    private async Task Reimprimir(int orderId)
+    {
+        await Http.PostAsync($"api/Orders/reprint/{orderId}", null);
+        Snackbar.Add("Enviando a la impresora de nuevo...", Severity.Info);
+    }
+
     private async Task DismissAlert(int orderId)
     {
         await Http.PatchAsync($"api/Orders/dismiss30m/{orderId}", null);
@@ -110,7 +130,6 @@
 
     private async Task CancelarPedido(int orderId)
     {
-        // CORRECCIÓN: Agregada la 's' a Orders
         await Http.PatchAsync($"api/Orders/cancel/{orderId}", null);
         Snackbar.Add("Pedido Cancelado", Severity.Error);
         await LoadOrders();

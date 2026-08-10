@@ -9,6 +9,7 @@ namespace RotiseriaWeb.Models
         public string? Phone { get; set; }
         public string DeliveryAddress { get; set; } = string.Empty;
         public string OrderType { get; set; } = "Delivery";
+        public int? TableId { get; set; }
         public string PaymentMethod { get; set; } = "Efectivo";
         public string? Comments { get; set; }
         public decimal DeliveryCost { get; set; }
