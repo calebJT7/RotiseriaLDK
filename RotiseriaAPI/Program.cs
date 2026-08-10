@@ -99,6 +99,13 @@ using (var scope = app.Services.CreateScope())
         context.SaveChanges();
     }
 }
-app.UseStaticFiles(); // Le da permiso a la API para leer la carpeta wwwroot
-app.MapFallbackToFile("index.html"); // Le dice que cargue tu página web por defecto
+// Le damos permiso explícito a la API para servir los archivos "raros" de Blazor
+app.UseStaticFiles(new StaticFileOptions
+{
+    ServeUnknownFileTypes = true,
+    DefaultContentType = "application/octet-stream"
+});
+
+app.MapFallbackToFile("index.html");
+
 app.Run();
