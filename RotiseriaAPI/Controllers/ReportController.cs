@@ -18,7 +18,9 @@ public class ReportsController : ControllerBase
     [HttpGet("dashboard")]
     public async Task<ActionResult> GetDashboardData()
     {
-        var today = DateTime.Today;
+        // TRASPASO DE TURNO NOCTURNO: Restamos 5 horas para que la madrugada (hasta la 01:00 AM) 
+        // siga contando dentro del día operativo anterior (la noche del fin de semana).
+        var today = DateTime.Now.AddHours(-5).Date;
 
         // Traemos todos los pedidos de hoy de una sola vez y súper rápido con AsNoTracking
         var ordersToday = await _context.Orders
