@@ -10,14 +10,27 @@
         @* COLUMNA IZQUIERDA: PRODUCTOS *@
         <MudItem xs="12" md="8">
             <MudText Typo="Typo.h4" Class="mb-4" Color="Color.Primary">Menú</MudText>
+
+            @* 🔍 BUSCADOR EN TIEMPO REAL *@
+            <MudTextField @bind-Value="searchString" Placeholder="Buscar empanada, promo, bebida..."
+                          Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Class="mb-4" Immediate="true" Clearable="true" />
+
             <MudGrid>
                 @if (products == null)
                 {
                     <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
                 }
+                else if (!FilteredProducts.Any())
+                {
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.body1" Class="text-white-50">No se encontraron productos que coincidan.
+                        </MudText>
+                    </MudItem>
+                }
                 else
                 {
-                    @foreach (RotiseriaWeb.Models.Product prod in products)
+                    @foreach (RotiseriaWeb.Models.Product prod in FilteredProducts)
                     {
                         <MudItem xs="12" sm="6">
                             <MudCard Elevation="4" Style="background-color: #2a2a2a; color: white;">
@@ -48,7 +61,6 @@
                 {
                     <MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-2">Productos en el carrito:</MudText>
 
-                    @* Lista de productos (arreglado el color y el hover) *@
                     <div class="mb-4 d-flex flex-column gap-2">
                         @foreach (var item in cart)
                         {
@@ -73,7 +85,6 @@
                         }
                     </div>
 
-                    @* --- NUEVA SECCIÓN DE SUBTOTALES --- *@
                     <div class="d-flex justify-space-between mb-1">
                         <MudText Typo="Typo.body1" Color="Color.Secondary">Subtotal Comida:</MudText>
                         <MudText Typo="Typo.body1" Color="Color.Secondary"><b>$ @SubtotalCart</b></MudText>
@@ -99,17 +110,13 @@
                     <MudAlert Severity="Severity.Info" Class="mb-4">El carrito está vacío</MudAlert>
                 }
 
-                @* Selectores de Tipo de Entrega / Atención *@
                 <MudSelect T="string" @bind-Value="orderType" Label="Tipo de Pedido" Variant="Variant.Outlined"
                            Margin="Margin.Dense" Class="mb-2">
                     <MudSelectItem T="string" Value="@("Local")">Mostrador (Para llevar)</MudSelectItem>
                     <MudSelectItem T="string" Value="@("Delivery")">Envío a Domicilio</MudSelectItem>
-
-                    @* NUEVA OPCIÓN DE SALÓN *@
                     <MudSelectItem T="string" Value="@("Salon")">Comer en Salón (Mesa)</MudSelectItem>
                 </MudSelect>
 
-                @* OPCIONES ESPECÍFICAS SEGÚN EL TIPO DE PEDIDO *@
                 @if (orderType == "Salon")
                 {
                     <MudSelect T="int?" @bind-Value="selectedTableId" Label="Seleccionar Mesa" Variant="Variant.Outlined"
@@ -131,7 +138,6 @@
                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" Min="0" />
                 }
 
-                @* SECCIÓN DE CLIENTES (Oculta si es para Mesa, porque la mesa ES el cliente) *@
                 @if (orderType != "Salon")
                 {
                     <MudSelect T="int?" @bind-Value="selectedCustomerId" Label="Seleccionar Cliente Registrado"
@@ -156,7 +162,6 @@
                     <MudSelectItem T="string" Value="@("Cuenta Corriente")">Cuenta Corriente (Fiado)</MudSelectItem>
                 </MudSelect>
 
-                @* Botón Final *@
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large"
                            Disabled="@(isProcessing || !cart.Any() || (orderType != "Salon" && !selectedCustomerId.HasValue && string.IsNullOrEmpty(customerName)))"
                            OnClick="ConfirmarPedido">
@@ -171,16 +176,20 @@
     private List<Product>? products;
     private List<CartItem> cart = new();
     private List<RotiseriaWeb.Models.Customer> customers = new();
-
-    // Lista para las mesas
     private List<Table> tables = new();
 
+    private string searchString = ""; // 🔍 Variable para el buscador
     private int? selectedCustomerId;
-    private int? selectedTableId; // Guarda qué mesa se eligió
-
+    private int? selectedTableId;
     private decimal deliveryCost = 1500;
 
-    // --- MATEMÁTICA ---
+    // Propiedad calculada que filtra en tiempo real
+    private IEnumerable<Product> FilteredProducts =>
+        string.IsNullOrWhiteSpace(searchString)
+            ? (products ?? new List<Product>())
+            : (products ?? new List<Product>()).Where(p => p.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase)
+                                                      || p.Category.Contains(searchString, StringComparison.OrdinalIgnoreCase));
+
     private decimal SubtotalCart => cart.Sum(x => x.Quantity * x.UnitPrice);
     private decimal TotalCart => SubtotalCart + (orderType == "Delivery" ? deliveryCost : 0);
 
@@ -199,7 +208,6 @@
             var clientes = await Http.GetFromJsonAsync<List<RotiseriaWeb.Models.Customer>>("api/Customer");
             if (clientes != null) customers = clientes;
 
-            // TRUCO DE CACHÉ: Le agregamos la hora exacta (?t=...) para que el navegador siempre pida la última versión
             var listaMesas = await Http.GetFromJsonAsync<List<Table>>($"api/Tables?t={DateTime.Now.Ticks}");
             if (listaMesas != null) tables = listaMesas;
         }
@@ -241,6 +249,12 @@
         }
     }
 
+    private void RemoveFromCard(CartItem item)
+    {
+        cart.Remove(item);
+        Snackbar.Add("Producto quitado", Severity.Info);
+    }
+
     private void RemoveFromCart(CartItem item)
     {
         cart.Remove(item);
@@ -249,7 +263,6 @@
 
     private async Task ConfirmarPedido()
     {
-        // --- VALIDACIONES NUEVAS ---
         if (orderType == "Salon" && !selectedTableId.HasValue)
         {
             Snackbar.Add("Para Salón, debes seleccionar un número de Mesa.", Severity.Warning);
@@ -262,13 +275,11 @@
             return;
         }
 
-        // --- ALERTA INTELIGENTE PARA MESAS OCUPADAS ---
         if (orderType == "Salon" && selectedTableId.HasValue)
         {
             var mesaSeleccionada = tables.FirstOrDefault(t => t.Id == selectedTableId.Value);
             if (mesaSeleccionada != null && mesaSeleccionada.Status == "Ocupada")
             {
-                // Mostramos cartel de advertencia. Si la cajera toca "Cancelar", frenamos todo.
                 bool confirmado = await JS.InvokeAsync<bool>("confirm", $"¡ATENCIÓN!\nLa Mesa {mesaSeleccionada.Number} ya está OCUPADA.\n\n¿Estás seguro de que querés AGREGAR (adicionar) estos productos a esa misma cuenta?");
                 if (!confirmado) return;
             }
@@ -286,18 +297,13 @@
         var nuevoPedido = new Order
         {
             CustomerId = selectedCustomerId,
-            // Si es Salón, la API va a forzar el nombre a "Mesa X", por ahora lo mandamos vacío
             ClientName = orderType == "Salon" ? "" : finalCustomerName,
-
-            // ¡ESTO FALTABA! Enviar el ID de la mesa a la base de datos
             TableId = orderType == "Salon" ? selectedTableId : null,
-
             Items = cart.Select(x => new OrderItem
             {
                 ProductId = x.ProductId,
                 Quantity = x.Quantity
             }).ToList(),
-
             DeliveryCost = orderType == "Delivery" ? deliveryCost : 0,
             PaymentMethod = selectedPayment,
             DeliveryAddress = orderType == "Delivery" ? deliveryAddress : "",
@@ -314,8 +320,8 @@
             selectedCustomerId = null;
             selectedTableId = null;
             deliveryAddress = "";
+            searchString = "";
 
-            // Recargamos el estado de las mesas forzando sin caché
             var listaMesas = await Http.GetFromJsonAsync<List<Table>>($"api/Tables?t={DateTime.Now.Ticks}");
             if (listaMesas != null) tables = listaMesas;
         }
